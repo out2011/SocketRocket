@@ -470,4 +470,5 @@ static NSTimeInterval const SRProxyConnectWriteTimeout = 5.0;
         [outStream write:bytes maxLength:data.length];
     });
 }
+
 @end
