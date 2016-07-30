@@ -9,6 +9,8 @@
 
 #import "SRURLUtilities.h"
 
+#import "SRHash.h"
+
 NS_ASSUME_NONNULL_BEGIN
 
 NSString *SRURLOrigin(NSURL *url)
@@ -42,16 +44,41 @@ extern BOOL SRURLRequiresSSL(NSURL *url)
 extern NSString *_Nullable SRBasicAuthorizationHeaderFromURL(NSURL *url)
 {
     NSData *data = [[NSString stringWithFormat:@"%@:%@", url.user, url.password] dataUsingEncoding:NSUTF8StringEncoding];
-    NSString *userAndPasswordBase64Encoded;
-    if ([data respondsToSelector:@selector(base64EncodedStringWithOptions:)]) {
-        userAndPasswordBase64Encoded = [data base64EncodedStringWithOptions:0];
-    } else {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        userAndPasswordBase64Encoded = [data base64Encoding];
-#pragma clang diagnostic pop
+    return [NSString stringWithFormat:@"Basic %@", SRBase64EncodedStringFromData(data)];
+}
+
+extern NSString *_Nullable SRStreamNetworkServiceTypeFromURLRequest(NSURLRequest *request)
+{
+    NSString *networkServiceType = nil;
+    switch (request.networkServiceType) {
+        case NSURLNetworkServiceTypeDefault:
+            break;
+        case NSURLNetworkServiceTypeVoIP: {
+            networkServiceType = NSStreamNetworkServiceTypeVoIP;
+            if (NSFoundationVersionNumber > NSFoundationVersionNumber_iOS_8_3) {
+                static dispatch_once_t predicate;
+                dispatch_once(&predicate, ^{
+                    NSLog(@"SocketRocket: %@ - this service type is deprecated in favor of using PushKit for VoIP control", networkServiceType);
+                });
+            }
+
+        } break;
+        case NSURLNetworkServiceTypeVideo:
+            networkServiceType = NSStreamNetworkServiceTypeVideo;
+            break;
+        case NSURLNetworkServiceTypeBackground:
+            networkServiceType = NSStreamNetworkServiceTypeBackground;
+            break;
+        case NSURLNetworkServiceTypeVoice:
+            networkServiceType = NSStreamNetworkServiceTypeVoice;
+            break;
+#if (__MAC_OS_X_VERSION_MAX_ALLOWED >= 101200 || __IPHONE_OS_VERSION_MAX_ALLOWED >= 100000 || __TV_OS_VERSION_MAX_ALLOWED >= 100000 || __WATCH_OS_VERSION_MAX_ALLOWED >= 30000)
+        case NSURLNetworkServiceTypeCallSignaling:
+            networkServiceType = NSStreamNetworkServiceTypeCallSignaling;
+            break;
+#endif
     }
-    return [NSString stringWithFormat:@"Basic %@", userAndPasswordBase64Encoded];
+    return networkServiceType;
 }
 
 NS_ASSUME_NONNULL_END
